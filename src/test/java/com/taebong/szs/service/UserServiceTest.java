@@ -12,10 +12,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -25,6 +28,9 @@ public class UserServiceTest {
 
     @Mock
     AllowedUsers allowedUsers;
+    
+    @Mock
+    PasswordEncoder passwordEncoder;
 
     @InjectMocks
     UserService userService;
@@ -56,7 +62,7 @@ public class UserServiceTest {
 
     @Test
     public void 정해진_사용자가_아니면_회원가입_불가능() throws Exception {
-        Assertions.assertThrows(ForbiddenException.class, () -> {
+        assertThrows(ForbiddenException.class, () -> {
             userService.signup(inValidUser);
         });
     }
@@ -75,29 +81,21 @@ public class UserServiceTest {
 
     @Test
     public void 비밀번호_암호화_안돼_있다면_예외발생() throws Exception {
-        // given
-
-        // when
-
-        // then
+        assertThrows(RuntimeException.class, () -> userService.signup(validUser));
     }
 
     @Test
-    public void 주민등록번호_암호화_안돼_있다면_예외발생() throws Exception {
+    public void 비밀번호_암호화_되어있다면_정상동작() throws Exception {
         // given
+        when(allowedUsers.getAllowedUserMap()).thenReturn(allowedUsersMap);
+        String encodedPassword = "hashedPassword";
+        when(passwordEncoder.encode(validUser.getPassword())).thenReturn(encodedPassword);
 
         // when
+        assertDoesNotThrow(() -> userService.signup(validUser));
 
         // then
-    }
-
-    @Test
-    public void 회원가입_성공() throws Exception {
-        // given
-
-        // when
-
-        // then
+        verify(userRepository, times(1)).save(any());
     }
 
     private Map<String, String> allowedUsersFixture() {
