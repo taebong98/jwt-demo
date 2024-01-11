@@ -9,6 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
+
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -29,8 +31,7 @@ public class UserService {
 
     private boolean isValidUser(String name, String regNo) {
         log.info("isValidUser().");
-        return allowedUsers.getAllowedUserList()
-                .stream()
-                .anyMatch(user -> user.getName().equals(name) && user.getRegNo().equals(regNo));
+        Map<String, String> allowedUserMap = allowedUsers.getAllowedUserMap();
+        return allowedUserMap.containsKey(regNo) && allowedUserMap.get(regNo).equals(name);
     }
 }

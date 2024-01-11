@@ -11,12 +11,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.awt.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.mockito.Mockito.*;
 
@@ -31,13 +29,13 @@ public class UserServiceTest {
     @InjectMocks
     UserService userService;
 
-    List<User> validUserList;
+    Map<String, String> allowedUsersMap;
     User validUser;
     User inValidUser;
 
     @BeforeEach
     void init() {
-        validUserList = validUserListFixture();
+        allowedUsersMap = allowedUsersFixture();
 
         validUser = User.builder()
                 .id(1L)
@@ -66,8 +64,7 @@ public class UserServiceTest {
     @Test
     public void 정해진_사용자면_회원가입_가능() throws Exception {
         // given
-        List<User> allowedUserList = validUserListFixture();
-        when(allowedUsers.getAllowedUserList()).thenReturn(allowedUserList);
+        when(allowedUsers.getAllowedUserMap()).thenReturn(allowedUsersMap);
 
         // when
         userService.signup(validUser);
@@ -77,7 +74,7 @@ public class UserServiceTest {
     }
 
     @Test
-    public void 비밀번호_암호화_안돼있다면_예외발생() throws Exception {
+    public void 비밀번호_암호화_안돼_있다면_예외발생() throws Exception {
         // given
 
         // when
@@ -86,7 +83,7 @@ public class UserServiceTest {
     }
 
     @Test
-    public void 주민등록번호_암호화_안돼있다면_예외발생() throws Exception {
+    public void 주민등록번호_암호화_안돼_있다면_예외발생() throws Exception {
         // given
 
         // when
@@ -103,20 +100,15 @@ public class UserServiceTest {
         // then
     }
 
-    private List<User> validUserListFixture() {
-        List<User> userList = new ArrayList<>();
-        User user1 = new User((long) 1, "hong12", "123456", "홍길동", "860824-1655068");
-        User user2 = new User((long) 2, "kim12", "123456", "김둘리", "921108-1582816");
-        User user3 = new User((long) 3, "ma12", "123456", "마징가", "880601-2455116");
-        User user4 = new User((long) 4, "be12", "123456", "베지터", "910411-1656116");
-        User user5 = new User((long) 5, "son12", "123456", "손오공", "820326-2715702");
+    private Map<String, String> allowedUsersFixture() {
+        Map<String, String> userMap = new HashMap<>();
 
-        userList.add(user1);
-        userList.add(user2);
-        userList.add(user3);
-        userList.add(user4);
-        userList.add(user5);
+        userMap.put("860824-1655068", "홍길동");
+        userMap.put("921108-1582816", "김둘리");
+        userMap.put("880601-2455116", "마징가");
+        userMap.put("910411-1656116", "베지터");
+        userMap.put("820326-2715702", "손오공");
 
-        return userList;
+        return userMap;
     }
 }
