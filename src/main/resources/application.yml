@@ -31,3 +31,7 @@ springdoc:
       enabled: true
   cache:
     disabled: true
+
+jwt:
+  secret: c3pzSk9CSVN0YXNrdGVzdHByb2plY3Q=
+  token-validity-in-minute: 60

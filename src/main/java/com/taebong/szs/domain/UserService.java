@@ -1,6 +1,10 @@
 package com.taebong.szs.domain;
 
+import com.taebong.szs.common.exception.DataNotFoundException;
 import com.taebong.szs.common.exception.ForbiddenException;
+import com.taebong.szs.common.exception.LoginException;
+import com.taebong.szs.common.jwt.JwtTokenProvider;
+import com.taebong.szs.controller.dto.LoginDto;
 import com.taebong.szs.domain.repository.UserRepository;
 import com.taebong.szs.domain.vo.AllowedUsers;
 import com.taebong.szs.domain.vo.User;
@@ -11,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @Slf4j
@@ -19,6 +24,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final AllowedUsers allowedUsers;
     private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
 
     @Transactional
     public void signup(User user) {
@@ -30,6 +36,21 @@ public class UserService {
 
         User encodedUser = getEncodedUser(user);
         userRepository.save(encodedUser);
+    }
+
+    public String login(LoginDto loginDto) {
+        log.info("login() ID: {}, PASSWORD: {}", loginDto.getUserId(), loginDto.getPassword());
+
+        Optional<User> optionalUser = userRepository.findByUserId(loginDto.getUserId());
+        User foundUser = optionalUser.orElseThrow(() -> {
+            throw new DataNotFoundException("조회된 사용자가 없습니다.");
+        });
+
+        if (!passwordEncoder.matches(loginDto.getPassword(), foundUser.getPassword())) {
+            throw new LoginException("비밀번호 일치하지 않음");
+        };
+
+        return jwtTokenProvider.createToken(foundUser);
     }
 
     private User getEncodedUser(User user) {

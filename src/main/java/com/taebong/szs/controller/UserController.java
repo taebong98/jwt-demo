@@ -1,5 +1,7 @@
 package com.taebong.szs.controller;
 
+import com.taebong.szs.controller.dto.LoginDto;
+import com.taebong.szs.controller.dto.TokenResponseDto;
 import com.taebong.szs.controller.dto.UserSignupDto;
 import com.taebong.szs.domain.UserService;
 import com.taebong.szs.domain.vo.User;
@@ -22,8 +24,16 @@ public class UserController {
 
     @Operation(summary = "회원가입")
     @PostMapping("/signup")
-    public void postUser(@RequestBody @Valid UserSignupDto userSignupDto) {
+    public String postUser(@RequestBody @Valid UserSignupDto userSignupDto) {
         User user = userSignupDto.toUser();
         userService.signup(user);
+        return "OK";
+    }
+
+    @Operation(summary = "로그인")
+    @PostMapping("/login")
+    public TokenResponseDto login(@RequestBody LoginDto loginDto) {
+        String accessToken = userService.login(loginDto);
+        return TokenResponseDto.builder().token(accessToken).build();
     }
 }
