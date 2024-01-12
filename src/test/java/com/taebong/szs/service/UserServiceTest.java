@@ -9,6 +9,8 @@ import com.taebong.szs.domain.UserService;
 import com.taebong.szs.domain.repository.UserRepository;
 import com.taebong.szs.domain.vo.AllowedUsers;
 import com.taebong.szs.domain.vo.User;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -147,6 +149,23 @@ public class UserServiceTest {
         assertThrows(LoginException.class, () -> userService.login(loginDto));
     }
 
+    @Test
+    public void 토큰_생성_검증() throws Exception {
+        // given
+        String token = generateTestToken(validUser.getName(), validUser.getUserId());
+        Claims claims = Jwts.claims();
+        claims.put("name", validUser.getName());
+        claims.put("userId", validUser.getUserId());
+        when(jwtTokenProvider.getClaims(token)).thenReturn(claims);
+
+        // when
+        User result = userService.getUserInJwtToken(token);
+
+        // then
+        assertThat(validUser.getName()).isEqualTo(result.getName());
+        assertThat(validUser.getUserId()).isEqualTo(result.getUserId());
+    }
+
     private Map<String, String> allowedUsersFixture() {
         Map<String, String> userMap = new HashMap<>();
 
@@ -157,5 +176,12 @@ public class UserServiceTest {
         userMap.put("820326-2715702", "손오공");
 
         return userMap;
+    }
+
+    private String generateTestToken(String name, String userId) {
+        return Jwts.builder()
+                .claim("name", name)
+                .claim("userId", userId)
+                .compact();
     }
 }
