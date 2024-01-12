@@ -1,6 +1,10 @@
 package com.taebong.szs.service;
 
+import com.taebong.szs.common.exception.DataNotFoundException;
 import com.taebong.szs.common.exception.ForbiddenException;
+import com.taebong.szs.common.exception.LoginException;
+import com.taebong.szs.common.jwt.JwtTokenProvider;
+import com.taebong.szs.controller.dto.LoginDto;
 import com.taebong.szs.domain.UserService;
 import com.taebong.szs.domain.repository.UserRepository;
 import com.taebong.szs.domain.vo.AllowedUsers;
@@ -16,7 +20,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
@@ -31,6 +37,9 @@ public class UserServiceTest {
     
     @Mock
     PasswordEncoder passwordEncoder;
+
+    @Mock
+    JwtTokenProvider jwtTokenProvider;
 
     @InjectMocks
     UserService userService;
@@ -96,6 +105,46 @@ public class UserServiceTest {
 
         // then
         verify(userRepository, times(1)).save(any());
+    }
+
+    @Test
+    public void 로그인_회원_정보가_일치한다면_토큰을_발급한다 () throws Exception {
+        // given
+        LoginDto loginDto = LoginDto.builder().userId("hong12").password("123456").build();
+
+        // when
+        when(userRepository.findByUserId(loginDto.getUserId())).thenReturn(Optional.of(validUser));
+        when(passwordEncoder.matches(loginDto.getPassword(), validUser.getPassword())).thenReturn(true);
+        when(jwtTokenProvider.createToken(validUser)).thenReturn("fakeToken");
+
+        // then
+        String token = userService.login(loginDto);
+
+        assertThat("fakeToken").isEqualTo(token);
+    }
+
+    @Test
+    public void 로그인_회원_정보가_조회되지_않는다면_예외를_발생시킨다() throws Exception {
+        // given
+        LoginDto loginDto = LoginDto.builder().userId("be").password("123456").build();
+
+        // when
+        when(userRepository.findByUserId(loginDto.getUserId())).thenReturn(Optional.empty());
+
+        // then
+        assertThrows(DataNotFoundException.class, () -> userService.login(loginDto));
+        verify(userRepository, times(1)).findByUserId("be");
+    }
+
+    @Test
+    public void 로그인_비멀번호가_일치하지_않다면_예외를_발생시킨다() throws Exception {
+        LoginDto loginDto = LoginDto.builder().userId("hong12").password("일치하지 않는 비밀번호").build();
+
+        when(userRepository.findByUserId(loginDto.getUserId())).thenReturn(Optional.of(validUser));
+        when(passwordEncoder.matches("일치하지 않는 비밀번호", validUser.getPassword())).thenReturn(false);
+
+        // then
+        assertThrows(LoginException.class, () -> userService.login(loginDto));
     }
 
     private Map<String, String> allowedUsersFixture() {
