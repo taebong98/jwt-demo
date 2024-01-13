@@ -1,5 +1,6 @@
 package com.taebong.szs.domain.vo;
 
+import com.taebong.szs.controller.dto.UserResponseDto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -28,4 +29,13 @@ public class User {
 
     @Column(unique = true, nullable = false)
     private String regNo;
+
+    public UserResponseDto toUserResponseDto() {
+        return UserResponseDto.builder()
+                .userId(userId)
+                .name(name)
+                .password(password)
+                .regNo(regNo)
+                .build();
+    }
 }
