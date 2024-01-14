@@ -2,18 +2,18 @@ package com.taebong.szs.controller;
 
 import com.taebong.szs.controller.dto.LoginDto;
 import com.taebong.szs.controller.dto.TokenResponseDto;
+import com.taebong.szs.controller.dto.UserResponseDto;
 import com.taebong.szs.controller.dto.UserSignupDto;
 import com.taebong.szs.domain.UserService;
 import com.taebong.szs.domain.vo.User;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpHeaders;
+import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
+import java.util.List;
 
 @Tag(name = "사용자", description = "사용자 관련 API")
 @RestController
@@ -35,5 +35,13 @@ public class UserController {
     public TokenResponseDto login(@RequestBody LoginDto loginDto) {
         String accessToken = userService.login(loginDto);
         return TokenResponseDto.builder().token(accessToken).build();
+    }
+
+    @Operation(summary = "토큰으로 사용자 조회")
+    @GetMapping("/me")
+    public UserResponseDto getUser(@RequestHeader(name = "Authorization") HttpHeaders headers) {
+        String token = headers.getFirst("Authorization");
+        User userInfo = userService.getUserInJwtToken(token);
+        return userInfo.toUserResponseDto();
     }
 }

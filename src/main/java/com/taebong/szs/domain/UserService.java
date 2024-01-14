@@ -4,10 +4,12 @@ import com.taebong.szs.common.exception.DataNotFoundException;
 import com.taebong.szs.common.exception.ForbiddenException;
 import com.taebong.szs.common.exception.LoginException;
 import com.taebong.szs.common.jwt.JwtTokenProvider;
+import com.taebong.szs.common.util.CryptUtils;
 import com.taebong.szs.controller.dto.LoginDto;
 import com.taebong.szs.domain.repository.UserRepository;
 import com.taebong.szs.domain.vo.AllowedUsers;
 import com.taebong.szs.domain.vo.User;
+import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,8 +25,8 @@ import java.util.Optional;
 public class UserService {
     private final UserRepository userRepository;
     private final AllowedUsers allowedUsers;
-    private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final CryptUtils cryptUtils;
 
     @Transactional
     public void signup(User user) {
@@ -46,16 +48,29 @@ public class UserService {
             throw new DataNotFoundException("조회된 사용자가 없습니다.");
         });
 
-        if (!passwordEncoder.matches(loginDto.getPassword(), foundUser.getPassword())) {
+        if (!cryptUtils.matches(loginDto.getPassword(), foundUser.getPassword())) {
             throw new LoginException("비밀번호 일치하지 않음");
-        };
+        }
 
         return jwtTokenProvider.createToken(foundUser);
     }
 
+    public User getUserInJwtToken(String token) {
+        log.info("getUserInJwtToken.");
+
+        Claims claims = jwtTokenProvider.getClaims(token);
+        return User.builder()
+                .name((String) claims.get("name"))
+                .userId((String) claims.get("userId"))
+                .password(cryptUtils.decrypt((String) claims.get("password")))
+                .regNo(cryptUtils.decrypt((String) claims.get("regNo")))
+                .build();
+    }
+
     private User getEncodedUser(User user) {
-        String encodedPassword = passwordEncoder.encode(user.getPassword());
-        String encodedRegNo = passwordEncoder.encode(user.getRegNo());
+        String encodedPassword = cryptUtils.encrypt(user.getPassword());
+        String encodedRegNo = cryptUtils.encrypt(user.getRegNo());
+
         checkEncoded(user.getPassword(), encodedPassword);
         checkEncoded(user.getRegNo(), encodedRegNo);
 

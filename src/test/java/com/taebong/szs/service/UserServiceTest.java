@@ -4,12 +4,14 @@ import com.taebong.szs.common.exception.DataNotFoundException;
 import com.taebong.szs.common.exception.ForbiddenException;
 import com.taebong.szs.common.exception.LoginException;
 import com.taebong.szs.common.jwt.JwtTokenProvider;
+import com.taebong.szs.common.util.CryptUtils;
 import com.taebong.szs.controller.dto.LoginDto;
 import com.taebong.szs.domain.UserService;
 import com.taebong.szs.domain.repository.UserRepository;
 import com.taebong.szs.domain.vo.AllowedUsers;
 import com.taebong.szs.domain.vo.User;
-import org.junit.jupiter.api.Assertions;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,9 +36,9 @@ public class UserServiceTest {
 
     @Mock
     AllowedUsers allowedUsers;
-    
+
     @Mock
-    PasswordEncoder passwordEncoder;
+    CryptUtils cryptUtils;
 
     @Mock
     JwtTokenProvider jwtTokenProvider;
@@ -98,7 +100,7 @@ public class UserServiceTest {
         // given
         when(allowedUsers.getAllowedUserMap()).thenReturn(allowedUsersMap);
         String encodedPassword = "hashedPassword";
-        when(passwordEncoder.encode(validUser.getPassword())).thenReturn(encodedPassword);
+        when(cryptUtils.encrypt(validUser.getPassword())).thenReturn(encodedPassword);
 
         // when
         assertDoesNotThrow(() -> userService.signup(validUser));
@@ -114,7 +116,7 @@ public class UserServiceTest {
 
         // when
         when(userRepository.findByUserId(loginDto.getUserId())).thenReturn(Optional.of(validUser));
-        when(passwordEncoder.matches(loginDto.getPassword(), validUser.getPassword())).thenReturn(true);
+        when(cryptUtils.matches(loginDto.getPassword(), validUser.getPassword())).thenReturn(true);
         when(jwtTokenProvider.createToken(validUser)).thenReturn("fakeToken");
 
         // then
@@ -141,10 +143,27 @@ public class UserServiceTest {
         LoginDto loginDto = LoginDto.builder().userId("hong12").password("일치하지 않는 비밀번호").build();
 
         when(userRepository.findByUserId(loginDto.getUserId())).thenReturn(Optional.of(validUser));
-        when(passwordEncoder.matches("일치하지 않는 비밀번호", validUser.getPassword())).thenReturn(false);
+        when(cryptUtils.matches(loginDto.getPassword(), validUser.getPassword())).thenReturn(false);
 
         // then
         assertThrows(LoginException.class, () -> userService.login(loginDto));
+    }
+
+    @Test
+    public void 토큰_생성_검증() throws Exception {
+        // given
+        String token = generateTestToken(validUser.getName(), validUser.getUserId());
+        Claims claims = Jwts.claims();
+        claims.put("name", validUser.getName());
+        claims.put("userId", validUser.getUserId());
+        when(jwtTokenProvider.getClaims(token)).thenReturn(claims);
+
+        // when
+        User result = userService.getUserInJwtToken(token);
+
+        // then
+        assertThat(validUser.getName()).isEqualTo(result.getName());
+        assertThat(validUser.getUserId()).isEqualTo(result.getUserId());
     }
 
     private Map<String, String> allowedUsersFixture() {
@@ -157,5 +176,12 @@ public class UserServiceTest {
         userMap.put("820326-2715702", "손오공");
 
         return userMap;
+    }
+
+    private String generateTestToken(String name, String userId) {
+        return Jwts.builder()
+                .claim("name", name)
+                .claim("userId", userId)
+                .compact();
     }
 }

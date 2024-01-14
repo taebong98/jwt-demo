@@ -35,3 +35,7 @@ springdoc:
 jwt:
   secret: c3pzSk9CSVN0YXNrdGVzdHByb2plY3Q=
   token-validity-in-minute: 60
+
+crypto:
+  secret: ENC(secret) # jasypt 적용하지 않았습니다.
+  salt: ENC(salt) # jasypt 적용하지 않았습니다.
