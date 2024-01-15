@@ -10,9 +10,10 @@ import com.taebong.szs.common.util.CryptUtils;
 import com.taebong.szs.controller.dto.LoginDto;
 import com.taebong.szs.controller.dto.ScrapRequestDto;
 import com.taebong.szs.controller.dto.scrap.ScrapResponseDto;
-import com.taebong.szs.domain.repository.UserRepository;
-import com.taebong.szs.domain.vo.AllowedUsers;
-import com.taebong.szs.domain.vo.User;
+import com.taebong.szs.domain.deduction.DeductionService;
+import com.taebong.szs.domain.user.repository.UserRepository;
+import com.taebong.szs.domain.user.vo.AllowedUsers;
+import com.taebong.szs.domain.user.vo.User;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +42,7 @@ public class UserService {
     private final CryptUtils cryptUtils;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final DeductionService deductionService;
 
     @Transactional
     public void signup(User user) {
@@ -54,6 +56,7 @@ public class UserService {
         userRepository.save(encodedUser);
     }
 
+    @Transactional
     public String login(LoginDto loginDto) {
         log.info("login() ID: {}, PASSWORD: {}", loginDto.getUserId(), loginDto.getPassword());
 
@@ -69,6 +72,7 @@ public class UserService {
         return jwtTokenProvider.createToken(foundUser);
     }
 
+    @Transactional(readOnly = true)
     public User getUserInJwtToken(String token) {
         log.info("getUserInJwtToken.");
 
@@ -81,15 +85,19 @@ public class UserService {
                 .build();
     }
 
+    @Transactional
     public void getUserScrap(String token) {
         log.info("getUserScrap.");
 
         User user = getUserInJwtToken(token);
+
         String requestBody = toRequestBody(user.getName(), user.getRegNo());
         log.info("requestBody: {}", requestBody);
 
         ScrapResponseDto response = getScrapResponseFromSzsApi(requestBody);
         log.info("Success API call. response: {}", response);
+
+        deductionService.getDeduction(response.getData().getJsonListResponseDto().getDeductionResponseDtoList(), user);
     }
 
     private User getEncodedUser(User user) {

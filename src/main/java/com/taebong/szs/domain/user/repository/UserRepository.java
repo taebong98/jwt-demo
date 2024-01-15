@@ -1,6 +1,6 @@
-package com.taebong.szs.domain.repository;
+package com.taebong.szs.domain.user.repository;
 
-import com.taebong.szs.domain.vo.User;
+import com.taebong.szs.domain.user.vo.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

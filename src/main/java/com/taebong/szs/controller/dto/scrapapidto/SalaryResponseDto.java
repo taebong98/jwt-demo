@@ -1,4 +1,4 @@
-package com.taebong.szs.controller.dto.scrap;
+package com.taebong.szs.controller.dto.scrapapidto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;

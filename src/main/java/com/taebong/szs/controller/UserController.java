@@ -5,7 +5,7 @@ import com.taebong.szs.controller.dto.TokenResponseDto;
 import com.taebong.szs.controller.dto.UserResponseDto;
 import com.taebong.szs.controller.dto.UserSignupDto;
 import com.taebong.szs.domain.UserService;
-import com.taebong.szs.domain.vo.User;
+import com.taebong.szs.domain.user.vo.User;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -13,7 +13,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
-import java.util.List;
 
 @Tag(name = "사용자", description = "사용자 관련 API")
 @RestController

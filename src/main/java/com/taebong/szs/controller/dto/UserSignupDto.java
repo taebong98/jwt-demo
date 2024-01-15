@@ -1,6 +1,6 @@
 package com.taebong.szs.controller.dto;
 
-import com.taebong.szs.domain.vo.User;
+import com.taebong.szs.domain.user.vo.User;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Getter;

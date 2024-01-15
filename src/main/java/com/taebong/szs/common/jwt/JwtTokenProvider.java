@@ -1,7 +1,7 @@
 package com.taebong.szs.common.jwt;
 
 import com.taebong.szs.common.exception.JwtParsingException;
-import com.taebong.szs.domain.vo.User;
+import com.taebong.szs.domain.user.vo.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.io.Encoders;

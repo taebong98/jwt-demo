@@ -1,4 +1,4 @@
-package com.taebong.szs.domain.vo;
+package com.taebong.szs.domain.user.vo;
 
 import org.springframework.stereotype.Component;
 

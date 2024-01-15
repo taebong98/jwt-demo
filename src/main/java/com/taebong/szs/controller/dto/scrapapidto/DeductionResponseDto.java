@@ -1,4 +1,4 @@
-package com.taebong.szs.controller.dto.scrap;
+package com.taebong.szs.controller.dto.scrapapidto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
@@ -16,4 +16,7 @@ public class DeductionResponseDto {
 
     @JsonProperty("소득구분")
     private String incomeCategory;
+
+    @JsonProperty("총납임금액")
+    private String totalPayment;
 }
