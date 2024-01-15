@@ -44,4 +44,9 @@ public class UserController {
         User userInfo = userService.getUserInJwtToken(token);
         return userInfo.toUserResponseDto();
     }
+
+    @PostMapping("/scrap")
+    public void scrap(@RequestHeader HttpHeaders headers) {
+        userService.getUserScrap(headers.getFirst("Authorization"));
+    }
 }

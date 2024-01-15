@@ -39,3 +39,6 @@ jwt:
 crypto:
   secret: ENC(secret) # jasypt 적용하지 않았습니다.
   salt: ENC(salt) # jasypt 적용하지 않았습니다.
+
+szs:
+  scrap: https://codetest.3o3.co.kr/v2/scrap
