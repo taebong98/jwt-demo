@@ -9,7 +9,7 @@ import com.taebong.szs.common.jwt.JwtTokenProvider;
 import com.taebong.szs.common.util.CryptUtils;
 import com.taebong.szs.controller.dto.LoginDto;
 import com.taebong.szs.controller.dto.ScrapRequestDto;
-import com.taebong.szs.controller.dto.scrap.ScrapResponseDto;
+import com.taebong.szs.controller.dto.scrapapidto.ScrapResponseDto;
 import com.taebong.szs.domain.deduction.DeductionService;
 import com.taebong.szs.domain.user.repository.UserRepository;
 import com.taebong.szs.domain.user.vo.AllowedUsers;
@@ -86,18 +86,27 @@ public class UserService {
     }
 
     @Transactional
-    public void getUserScrap(String token) {
+    public User getUserScrap(String token) {
         log.info("getUserScrap.");
 
-        User user = getUserInJwtToken(token);
+        Claims claims = jwtTokenProvider.getClaims(token);
+        String userId = (String) claims.get("userId");
+        Optional<User> optionalUser = userRepository.findByUserId(userId);
+        User foundUser = optionalUser.orElseThrow(() -> {
+            throw new DataNotFoundException("조회된 사용자 없음");
+        });
 
-        String requestBody = toRequestBody(user.getName(), user.getRegNo());
+        String requestBody = toRequestBody(foundUser.getName(), cryptUtils.decrypt(foundUser.getRegNo()));
         log.info("requestBody: {}", requestBody);
 
         ScrapResponseDto response = getScrapResponseFromSzsApi(requestBody);
         log.info("Success API call. response: {}", response);
 
-        deductionService.getDeduction(response.getData().getJsonListResponseDto().getDeductionResponseDtoList(), user);
+        String taxAmount = response.getData().getJsonListResponseDto().getTaxAmount();
+        foundUser.setTaxAmount(taxAmount);
+        deductionService.getDeduction(response.getData().getJsonListResponseDto().getDeductionResponseDtoList(), foundUser);
+
+        return foundUser;
     }
 
     private User getEncodedUser(User user) {

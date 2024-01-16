@@ -1,5 +1,6 @@
 package com.taebong.szs.domain.deduction.vo;
 
+import com.taebong.szs.controller.dto.DeductResponseDto;
 import com.taebong.szs.domain.user.vo.User;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,5 +25,17 @@ public class Deduction {
 
     private String totalPayment;
 
-    private String userId;
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
+
+    public DeductResponseDto toDeductResponseDto() {
+        return DeductResponseDto.builder()
+                .id(id)
+                .amount(amount)
+                .incomeCategory(incomeCategory)
+                .totalPayment(totalPayment)
+                .userId(user.getUserId())
+                .build();
+    }
 }

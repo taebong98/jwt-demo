@@ -2,13 +2,11 @@ package com.taebong.szs.domain.user.vo;
 
 import com.taebong.szs.controller.dto.UserResponseDto;
 import com.taebong.szs.domain.deduction.vo.Deduction;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import javax.persistence.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Getter
 @Builder
@@ -18,7 +16,6 @@ import java.util.List;
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "user_test_id")
     private Long id;
 
     @Column(unique = true, nullable = false)
@@ -33,12 +30,20 @@ public class User {
     @Column(unique = true, nullable = false)
     private String regNo;
 
+    @Setter
+    public String taxAmount;
+
+    @OneToMany(mappedBy = "user")
+    private List<Deduction> deductionList;
+
     public UserResponseDto toUserResponseDto() {
         return UserResponseDto.builder()
                 .userId(userId)
                 .name(name)
                 .password(password)
                 .regNo(regNo)
+                .taxAmount(taxAmount)
+                .deductionList(deductionList.stream().map(Deduction::toDeductResponseDto).collect(Collectors.toList()))
                 .build();
     }
 }

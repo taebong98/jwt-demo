@@ -44,8 +44,9 @@ public class UserController {
         return userInfo.toUserResponseDto();
     }
 
+    @Operation(summary = "가입한 유저의 정보를 스크랩 하고, 해당 정보를 데이터베이스에 저장")
     @PostMapping("/scrap")
-    public void scrap(@RequestHeader HttpHeaders headers) {
-        userService.getUserScrap(headers.getFirst("Authorization"));
+    public UserResponseDto scrap(@RequestHeader HttpHeaders headers) {
+        return userService.getUserScrap(headers.getFirst("Authorization")).toUserResponseDto();
     }
 }

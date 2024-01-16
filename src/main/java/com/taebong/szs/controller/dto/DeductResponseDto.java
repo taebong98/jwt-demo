@@ -5,17 +5,14 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserResponseDto {
+public class DeductResponseDto {
+    private Long id;
+    private String amount;
+    private String incomeCategory;
+    private String totalPayment;
     private String userId;
-    private String name;
-    private String password;
-    private String regNo;
-    private String taxAmount;
-    private List<DeductResponseDto> deductionList;
 }
