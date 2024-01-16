@@ -31,7 +31,10 @@ public class User {
     private String regNo;
 
     @Setter
-    public String taxAmount;
+    private String taxAmount;
+
+    @Setter
+    private String totalSalary;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private List<Deduction> deductionList;
@@ -50,6 +53,7 @@ public class User {
                 .userId(userId)
                 .name(name)
                 .taxAmount(taxAmount)
+                .totalSalary(totalSalary)
                 .deductionList(deductionList.stream().map(Deduction::toDeductResponseDto).collect(Collectors.toList()))
                 .build();
     }

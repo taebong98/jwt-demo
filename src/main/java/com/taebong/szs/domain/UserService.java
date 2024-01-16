@@ -7,7 +7,9 @@ import com.taebong.szs.common.exception.ForbiddenException;
 import com.taebong.szs.common.exception.LoginException;
 import com.taebong.szs.common.jwt.JwtTokenProvider;
 import com.taebong.szs.common.util.CryptUtils;
+import com.taebong.szs.common.util.SpecialTaxCreditAmountUtil;
 import com.taebong.szs.controller.dto.LoginDto;
+import com.taebong.szs.controller.dto.RefundResponseDto;
 import com.taebong.szs.controller.dto.ScrapRequestDto;
 import com.taebong.szs.controller.dto.scrapapidto.DeductionResponseDto;
 import com.taebong.szs.controller.dto.scrapapidto.ScrapResponseDto;
@@ -15,6 +17,7 @@ import com.taebong.szs.domain.user.repository.DeductionRepository;
 import com.taebong.szs.domain.user.vo.Deduction;
 import com.taebong.szs.domain.user.repository.UserRepository;
 import com.taebong.szs.domain.user.vo.AllowedUsers;
+import com.taebong.szs.domain.user.vo.DeductionCategory;
 import com.taebong.szs.domain.user.vo.User;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +31,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,6 +52,7 @@ public class UserService {
     private final CryptUtils cryptUtils;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final SpecialTaxCreditAmountUtil specialTaxCreditAmountUtil;
 
     @Transactional
     public void signup(User user) {
@@ -106,6 +112,89 @@ public class UserService {
         return foundUser;
     }
 
+    @Transactional(readOnly = true)
+    public RefundResponseDto calculateRefund(String token) {
+        Claims claims = jwtTokenProvider.getClaims(token);
+        User foundUser = getUserByUserId((String) claims.get("userId"));
+        String decidedTaxAmount = calculateDecidedTaxAmount(foundUser);
+        String retirementDeductionAmount = getRetirementDeductionAmount(foundUser).toString();
+
+        return RefundResponseDto.builder()
+                .decidedTaxAmount(decidedTaxAmount)
+                .retirementPensionTaxCredit(retirementDeductionAmount)
+                .build();
+    }
+
+    // 결정세액
+    private String calculateDecidedTaxAmount(User user) {
+        log.info("decidedTaxAmount. userId: {}", user.getUserId());
+
+        // 산출세액
+        BigDecimal taxAmount = stringToBigDecimal(user.getTaxAmount());
+        log.info("산출세액: {}", taxAmount);
+
+        // 근로소득 공제금액
+        BigDecimal eitc = taxAmount.multiply(BigDecimal.valueOf(0.55));
+        log.info("근로소득공제금액: {}", eitc);
+
+        // 특별세액 또는 표준세액
+        BigDecimal specialOrStandardCreditAmount = getSpecialOrStandardCreditAmount(user);
+        log.info("특별세액 또는 표준세액: {}", specialOrStandardCreditAmount);
+
+        // 퇴직연금세액공제금액
+        BigDecimal retirementDeductionAmount = getRetirementDeductionAmount(user);
+        log.info("퇴직연금세액공제금액: {}", retirementDeductionAmount);
+
+        BigDecimal decidedTax = taxAmount.subtract(eitc).subtract(specialOrStandardCreditAmount).subtract(retirementDeductionAmount);
+        if (decidedTax.compareTo(BigDecimal.ZERO) < 0) {
+            return "0";
+        }
+        return decidedTax.toString();
+    }
+
+    private BigDecimal getSpecialOrStandardCreditAmount(User user) {
+        log.info("getSpecialOrStandardCreditAmount. userId: {}", user.getUserId());
+        BigDecimal special = BigDecimal.ZERO;
+        List<Deduction> deductionList = user.getDeductionList();
+        for (Deduction deduction : deductionList) {
+            if (deduction.getDeductionCategory() == DeductionCategory.DONATION) {
+                BigDecimal donation = specialTaxCreditAmountUtil.donation(stringToBigDecimal(deduction.getDeductionAmount()));
+                special = special.add(donation);
+            }
+            else if (deduction.getDeductionCategory() == DeductionCategory.INSURANCE) {
+                BigDecimal donation = specialTaxCreditAmountUtil.insure(stringToBigDecimal(deduction.getDeductionAmount()));
+                special = special.add(donation);
+            }
+            else if (deduction.getDeductionCategory() == DeductionCategory.EDUCATION) {
+                BigDecimal donation = specialTaxCreditAmountUtil.education(stringToBigDecimal(deduction.getDeductionAmount()));
+                special = special.add(donation);
+            }
+            else if (deduction.getDeductionCategory() == DeductionCategory.MEDICAL) {
+                BigDecimal donation = specialTaxCreditAmountUtil.medical(stringToBigDecimal(deduction.getDeductionAmount()), stringToBigDecimal(user.getTotalSalary()));
+                special = special.add(donation);
+            }
+        }
+        log.info("특별세액공제금: {}", special);
+
+        if (special.compareTo(BigDecimal.valueOf(130000)) < 0) {
+            log.info("특별세액공제금이 13만원보다 적음 -> 표준세액공제금으로 계산. {}", 130000);
+            return BigDecimal.valueOf(130000);
+        }
+
+        return BigDecimal.valueOf(130000);
+    }
+
+    private BigDecimal getRetirementDeductionAmount(User user) {
+        BigDecimal retirementDeductionAmount =  BigDecimal.ZERO;
+        List<Deduction> deductionList = user.getDeductionList();
+        for (Deduction deduction : deductionList) {
+            if (deduction.getDeductionCategory() == DeductionCategory.RETIREMENT_PENSION) {
+                retirementDeductionAmount = stringToBigDecimal(deduction.getTotalPayment()).multiply(BigDecimal.valueOf(0.15));
+            }
+        }
+        return retirementDeductionAmount;
+    }
+
     private User getUserByUserId(String userId) {
         log.info("getUserByUserId. userId: {}", userId);
 
@@ -119,7 +208,9 @@ public class UserService {
         log.info("saveScrapInfo. userId: {}", foundUser.getUserId());
 
         String taxAmount = response.getData().getJsonListResponseDto().getTaxAmount();
+        String totalSalary = response.getData().getJsonListResponseDto().getSalaryResponseDtoList().get(0).getTotalAmount();
         foundUser.setTaxAmount(taxAmount);
+        foundUser.setTotalSalary(totalSalary);
         saveDeductibleAmount(response.getData().getJsonListResponseDto().getDeductionResponseDtoList(), foundUser);
     }
 
@@ -127,12 +218,19 @@ public class UserService {
         log.info("getDeduction. userId: {}" , user.getUserId());
 
         List<Deduction> deductions = deductionResponseDto.stream()
-                .map(responseDto -> Deduction.builder()
-                        .deductionAmount(responseDto.getAmount())
-                        .incomeCategory(responseDto.getIncomeCategory())
-                        .totalPayment(responseDto.getTotalPayment())
-                        .user(user)
-                        .build())
+                .map(responseDto -> {
+                    DeductionCategory category = Arrays.stream(DeductionCategory.values())
+                            .filter(c -> c.getValue().equals(responseDto.getIncomeCategory()))
+                            .findFirst()
+                            .orElseThrow(() -> new IllegalArgumentException("일치하는 공제 항목이 없음"));
+
+                    return Deduction.builder()
+                            .deductionAmount(responseDto.getAmount())
+                            .totalPayment(responseDto.getTotalPayment())
+                            .deductionCategory(category)
+                            .user(user)
+                            .build();
+                })
                 .collect(Collectors.toList());
 
         deductionRepository.saveAll(deductions);
@@ -192,5 +290,10 @@ public class UserService {
         }
 
         return responseEntity.getBody();
+    }
+
+    private BigDecimal stringToBigDecimal(String numberString) {
+        String cleanNumberString = numberString.replaceAll("[^\\d.]", "");
+        return new BigDecimal(cleanNumberString);
     }
 }

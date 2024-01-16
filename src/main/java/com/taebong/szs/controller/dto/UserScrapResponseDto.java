@@ -15,5 +15,6 @@ public class UserScrapResponseDto {
     private String userId;
     private String name;
     private String taxAmount;
+    private String totalSalary;
     private List<DeductResponseDto> deductionList;
 }

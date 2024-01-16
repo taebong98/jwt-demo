@@ -47,4 +47,10 @@ public class UserController {
         User user = userService.getAndSaveScrapInfo(headers.getFirst("Authorization"));
         return user.toScarpUserResponseDto();
     }
+
+    @Operation(summary = "유저의 스크랩 정보를 바탕으로 유저의 결정세액과 퇴직연금세액공제금액을 계산")
+    @GetMapping("/refund")
+    public RefundResponseDto refund(@RequestHeader HttpHeaders headers) {
+        return userService.calculateRefund(headers.getFirst("Authorization"));
+    }
 }
