@@ -15,6 +15,7 @@ import com.taebong.szs.domain.user.repository.DeductionRepository;
 import com.taebong.szs.domain.user.vo.Deduction;
 import com.taebong.szs.domain.user.repository.UserRepository;
 import com.taebong.szs.domain.user.vo.AllowedUsers;
+import com.taebong.szs.domain.user.vo.DeductionCategory;
 import com.taebong.szs.domain.user.vo.User;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -106,6 +108,12 @@ public class UserService {
         return foundUser;
     }
 
+    public void calculateTax(String token) {
+        Claims claims = jwtTokenProvider.getClaims(token);
+        User foundUser = getUserByUserId((String) claims.get("userId"));
+
+    }
+
     private User getUserByUserId(String userId) {
         log.info("getUserByUserId. userId: {}", userId);
 
@@ -127,12 +135,19 @@ public class UserService {
         log.info("getDeduction. userId: {}" , user.getUserId());
 
         List<Deduction> deductions = deductionResponseDto.stream()
-                .map(responseDto -> Deduction.builder()
-                        .deductionAmount(responseDto.getAmount())
-                        .incomeCategory(responseDto.getIncomeCategory())
-                        .totalPayment(responseDto.getTotalPayment())
-                        .user(user)
-                        .build())
+                .map(responseDto -> {
+                    DeductionCategory category = Arrays.stream(DeductionCategory.values())
+                            .filter(c -> c.getValue().equals(responseDto.getIncomeCategory()))
+                            .findFirst()
+                            .orElseThrow(() -> new IllegalArgumentException("일치하는 공제 항목이 없음"));
+
+                    return Deduction.builder()
+                            .deductionAmount(responseDto.getAmount())
+                            .totalPayment(responseDto.getTotalPayment())
+                            .deductionCategory(category)
+                            .user(user)
+                            .build();
+                })
                 .collect(Collectors.toList());
 
         deductionRepository.saveAll(deductions);

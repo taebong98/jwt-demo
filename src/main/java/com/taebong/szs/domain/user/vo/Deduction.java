@@ -20,7 +20,8 @@ public class Deduction {
 
     private String deductionAmount;
 
-    private String incomeCategory;
+    @Enumerated(EnumType.STRING)
+    private DeductionCategory deductionCategory;
 
     private String totalPayment;
 
@@ -32,7 +33,7 @@ public class Deduction {
         return DeductResponseDto.builder()
                 .id(id)
                 .deductionAmount(deductionAmount)
-                .incomeCategory(incomeCategory)
+                .deductionCategory(deductionCategory)
                 .totalPayment(totalPayment)
                 .userId(user.getUserId())
                 .build();

@@ -5,6 +5,7 @@ import com.taebong.szs.domain.UserService;
 import com.taebong.szs.domain.user.vo.User;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.*;
@@ -46,5 +47,12 @@ public class UserController {
     public UserScrapResponseDto scrap(@RequestHeader HttpHeaders headers) {
         User user = userService.getAndSaveScrapInfo(headers.getFirst("Authorization"));
         return user.toScarpUserResponseDto();
+    }
+
+    @Operation(summary = "유저의 스크랩 정보를 바탕으로 유저의 결정세액과 퇴직연금세액공제금액을 계산")
+    @GetMapping("/refund")
+    public RefundResponseDto refund(@RequestHeader HttpHeaders headers) {
+        userService.calculateTax(headers.getFirst("Authorization"));
+        return null;
     }
 }
