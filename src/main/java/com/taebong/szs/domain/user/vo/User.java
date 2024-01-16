@@ -1,7 +1,6 @@
 package com.taebong.szs.domain.user.vo;
 
 import com.taebong.szs.controller.dto.UserResponseDto;
-import com.taebong.szs.domain.deduction.vo.Deduction;
 import lombok.*;
 
 import javax.persistence.*;
@@ -33,10 +32,20 @@ public class User {
     @Setter
     public String taxAmount;
 
-    @OneToMany(mappedBy = "user")
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private List<Deduction> deductionList;
 
     public UserResponseDto toUserResponseDto() {
+        return UserResponseDto.builder()
+                .userId(userId)
+                .name(name)
+                .password(password)
+                .regNo(regNo)
+                .taxAmount(taxAmount)
+                .build();
+    }
+
+    public UserResponseDto toScarpUserResponseDto() {
         return UserResponseDto.builder()
                 .userId(userId)
                 .name(name)

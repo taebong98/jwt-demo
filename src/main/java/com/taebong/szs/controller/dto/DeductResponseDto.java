@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class DeductResponseDto {
     private Long id;
-    private String amount;
+    private String deductionAmount;
     private String incomeCategory;
     private String totalPayment;
     private String userId;

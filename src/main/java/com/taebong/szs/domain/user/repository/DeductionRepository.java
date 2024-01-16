@@ -1,6 +1,6 @@
-package com.taebong.szs.domain.deduction.repository;
+package com.taebong.szs.domain.user.repository;
 
-import com.taebong.szs.domain.deduction.vo.Deduction;
+import com.taebong.szs.domain.user.vo.Deduction;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
