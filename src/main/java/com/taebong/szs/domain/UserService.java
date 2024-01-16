@@ -120,6 +120,7 @@ public class UserService {
         String retirementDeductionAmount = getRetirementDeductionAmount(foundUser).toString();
 
         return RefundResponseDto.builder()
+                .name(foundUser.getName())
                 .decidedTaxAmount(decidedTaxAmount)
                 .retirementPensionTaxCredit(retirementDeductionAmount)
                 .build();
