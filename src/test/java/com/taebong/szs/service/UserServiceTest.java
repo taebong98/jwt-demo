@@ -1,19 +1,17 @@
 package com.taebong.szs.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.taebong.szs.common.exception.DataNotFoundException;
 import com.taebong.szs.common.exception.ForbiddenException;
 import com.taebong.szs.common.exception.LoginException;
 import com.taebong.szs.common.jwt.JwtTokenProvider;
 import com.taebong.szs.common.util.CryptUtils;
 import com.taebong.szs.controller.dto.LoginDto;
-import com.taebong.szs.controller.dto.ScrapRequestDto;
 import com.taebong.szs.controller.dto.scrapapidto.*;
 import com.taebong.szs.domain.UserService;
-import com.taebong.szs.domain.user.repository.DeductionRepository;
 import com.taebong.szs.domain.user.repository.UserRepository;
 import com.taebong.szs.domain.user.vo.AllowedUsers;
 import com.taebong.szs.domain.user.vo.Deduction;
+import com.taebong.szs.domain.user.vo.DeductionCategory;
 import com.taebong.szs.domain.user.vo.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -26,7 +24,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.*;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 
@@ -41,9 +38,6 @@ public class UserServiceTest {
     UserRepository userRepository;
 
     @Mock
-    DeductionRepository deductionRepository;
-
-    @Mock
     AllowedUsers allowedUsers;
 
     @Mock
@@ -51,12 +45,6 @@ public class UserServiceTest {
 
     @Mock
     JwtTokenProvider jwtTokenProvider;
-
-    @Mock
-    ObjectMapper objectMapper;
-
-    @Mock
-    RestTemplate restTemplate;
 
     @InjectMocks
     UserService userService;
@@ -230,47 +218,6 @@ public class UserServiceTest {
         assertThrows(MalformedJwtException.class, () -> userService.getUserInJwtToken(invalidToken));
     }
 
-//    @Test
-    public void 스크랩_정보에서_계산이_필요한_데이터를_저장한다() throws Exception {
-        User user = User.builder()
-                .id(1L)
-                .userId("hong12")
-                .password("d5da16ea41b43ab8dc3af96af5c2a91cf87d4c36eed44b4f2ba30e3690e96799")
-                .name("홍길동")
-                .regNo("377f8b3b33d00ea1006adbcb785ae3e94be2235d36c8eaeb5caf3e9ad2f7c97a")
-                .build();
-
-        String mockToken = "mockedToken";
-        Claims mockedClaims = mock(Claims.class);
-        when(jwtTokenProvider.getClaims(mockToken)).thenReturn(mockedClaims);
-        when(mockedClaims.get("userId")).thenReturn("hong12");
-        when(userRepository.findByUserId((String) mockedClaims.get("userId"))).thenReturn(Optional.of(user));
-        when(cryptUtils.decrypt(user.getRegNo())).thenReturn("860824-1655068");
-
-        String requestBody = "{\"name\":\"홍길동\",\"regNo\":\"860824-1655068\"}";
-        when(objectMapper.writeValueAsString(any(ScrapRequestDto.class))).thenReturn(requestBody);
-
-        when(restTemplate.exchange(
-                "https://codetest.3o3.co.kr/v2/scrap",
-                HttpMethod.POST,
-                new HttpEntity<>(requestBody),  // Use nullable(HttpEntity.class) here
-                ScrapResponseDto.class
-        )).thenReturn(hong12ScrapRequestDtoFixture());
-
-        User saveUser = User.builder()
-                .id(1L)
-                .userId("hong12")
-                .password("d5da16ea41b43ab8dc3af96af5c2a91cf87d4c36eed44b4f2ba30e3690e96799")
-                .name("홍길동")
-                .regNo("377f8b3b33d00ea1006adbcb785ae3e94be2235d36c8eaeb5caf3e9ad2f7c97a")
-                .deductionList(deductionListFixture(user))
-                .build();
-
-
-        User actual = userService.getAndSaveScrapInfo(mockToken);
-        System.out.println("actual = " + actual);
-    }
-
     public ResponseEntity<ScrapResponseDto> hong12ScrapRequestDtoFixture() {
         List<SalaryResponseDto> salaryResponseDtoList = new ArrayList<>();
         salaryResponseDtoList.add(new SalaryResponseDto(
@@ -308,14 +255,73 @@ public class UserServiceTest {
 
         return ResponseEntity.ok(new ScrapResponseDto("success", scrapDataResponseDto, null));
     }
+    
+    @Test
+    public void 스크랩_정보를_이용해_결정새액과_퇴직연금공제금을_계산한다_홍길동() throws Exception {
+        // given
+        List<Deduction> deductionList = hongGilDongScrapDataFixture();
 
-    private List<Deduction> deductionListFixture(User user) {
+        User hongGilDong = User.builder()
+                .id(1L)
+                .userId("hong12")
+                .taxAmount("3,000,000")
+                .deductionList(deductionList)
+                .build();
+
+        double insurancePaid = 100000;
+        double educationPaid = 200000;
+        double donationPaid = 150000;
+        double medicalPaid = 4400000;
+        double totalSalary = 6000000;
+
+        // when
+        
+        // then
+    }
+
+
+    private List<Deduction> hongGilDongScrapDataFixture() {
         List<Deduction> deductionList = new ArrayList<>();
-        deductionList.add(Deduction.builder().incomeCategory("교육비").deductionAmount("200,000").user(user).build());
-        deductionList.add(Deduction.builder().incomeCategory("기부금").deductionAmount("150,000").user(user).build());
-        deductionList.add(Deduction.builder().incomeCategory("의료비").deductionAmount("4,400,000").user(user).build());
-        deductionList.add(Deduction.builder().incomeCategory("보험료").deductionAmount("100,000").user(user).build());
-        deductionList.add(Deduction.builder().incomeCategory("퇴직연금").totalPayment("6,000,000").user(user).build());
+        Deduction hongDeductionInsurance = Deduction.builder()
+                .deductionAmount("100,000")
+                .deductionCategory(DeductionCategory.INSURANCE)
+                .build();
+
+        Deduction hongDeductionEducation = Deduction.builder()
+                .deductionAmount("200,000")
+                .deductionCategory(DeductionCategory.EDUCATION)
+                .build();
+
+        Deduction hongDeductionDonation = Deduction.builder()
+                .deductionAmount("150,000")
+                .deductionCategory(DeductionCategory.DONATION)
+                .build();
+
+        Deduction hongDeductionMedical = Deduction.builder()
+                .deductionAmount("4,400,000")
+                .deductionCategory(DeductionCategory.MEDICAL)
+                .build();
+
+        Deduction hongDeductionRetire = Deduction.builder()
+                .totalPayment("6,000,000")
+                .deductionCategory(DeductionCategory.RETIREMENT_PENSION)
+                .build();
+
+        deductionList.add(hongDeductionInsurance);
+        deductionList.add(hongDeductionEducation);
+        deductionList.add(hongDeductionDonation);
+        deductionList.add(hongDeductionMedical);
+        deductionList.add(hongDeductionRetire);
+        return deductionList;
+    }
+
+    private List<Deduction> maZingGaScrapDataFixture() {
+        List<Deduction> deductionList = new ArrayList<>();
+        deductionList.add(Deduction.builder().deductionCategory(DeductionCategory.INSURANCE).deductionAmount("200,000").build());
+        deductionList.add(Deduction.builder().deductionCategory(DeductionCategory.EDUCATION).deductionAmount("200,000").build());
+        deductionList.add(Deduction.builder().deductionCategory(DeductionCategory.DONATION).deductionAmount("200,000").build());
+        deductionList.add(Deduction.builder().deductionCategory(DeductionCategory.MEDICAL).deductionAmount("5,000,000").build());
+        deductionList.add(Deduction.builder().deductionCategory(DeductionCategory.RETIREMENT_PENSION).totalPayment("7,233,333.333").build());
         return deductionList;
     }
 
