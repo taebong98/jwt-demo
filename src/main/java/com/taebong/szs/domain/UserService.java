@@ -1,38 +1,58 @@
 package com.taebong.szs.domain;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.taebong.szs.common.exception.DataNotFoundException;
 import com.taebong.szs.common.exception.ForbiddenException;
 import com.taebong.szs.common.exception.LoginException;
 import com.taebong.szs.common.jwt.JwtTokenProvider;
 import com.taebong.szs.common.util.CryptUtils;
 import com.taebong.szs.controller.dto.LoginDto;
-import com.taebong.szs.domain.repository.UserRepository;
-import com.taebong.szs.domain.vo.AllowedUsers;
-import com.taebong.szs.domain.vo.User;
+import com.taebong.szs.controller.dto.ScrapRequestDto;
+import com.taebong.szs.controller.dto.scrapapidto.DeductionResponseDto;
+import com.taebong.szs.controller.dto.scrapapidto.ScrapResponseDto;
+import com.taebong.szs.domain.user.repository.DeductionRepository;
+import com.taebong.szs.domain.user.vo.Deduction;
+import com.taebong.szs.domain.user.repository.UserRepository;
+import com.taebong.szs.domain.user.vo.AllowedUsers;
+import com.taebong.szs.domain.user.vo.User;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class UserService {
+    @Value("${szs.scrap}")
+    private String scrapEndPoint;
+
     private final UserRepository userRepository;
+    private final DeductionRepository deductionRepository;
     private final AllowedUsers allowedUsers;
     private final JwtTokenProvider jwtTokenProvider;
     private final CryptUtils cryptUtils;
+    private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public void signup(User user) {
         log.info("start signup(). userId: {}", user.getUserId());
 
-        if (!isValidUser(user.getName(), user.getRegNo())) {
+        if (!isAllowedUser(user.getName(), user.getRegNo())) {
             throw new ForbiddenException("회원가입 할 수 없는 사용자");
         }
 
@@ -40,6 +60,7 @@ public class UserService {
         userRepository.save(encodedUser);
     }
 
+    @Transactional
     public String login(LoginDto loginDto) {
         log.info("login() ID: {}, PASSWORD: {}", loginDto.getUserId(), loginDto.getPassword());
 
@@ -55,6 +76,7 @@ public class UserService {
         return jwtTokenProvider.createToken(foundUser);
     }
 
+    @Transactional(readOnly = true)
     public User getUserInJwtToken(String token) {
         log.info("getUserInJwtToken.");
 
@@ -65,6 +87,55 @@ public class UserService {
                 .password(cryptUtils.decrypt((String) claims.get("password")))
                 .regNo(cryptUtils.decrypt((String) claims.get("regNo")))
                 .build();
+    }
+
+    @Transactional
+    public User getAndSaveScrapInfo(String token) {
+        log.info("getUserScrap.");
+
+        Claims claims = jwtTokenProvider.getClaims(token);
+        User foundUser = getUserByUserId((String) claims.get("userId"));
+
+        String requestBody = objectToRequestBody(foundUser.getName(), cryptUtils.decrypt(foundUser.getRegNo()));
+        log.info("requestBody: {}", requestBody);
+
+        ScrapResponseDto response = getScrapUserFromSzsApi(requestBody);
+        log.info("Success API call. response: {}", response);
+
+        saveScrapInfo(foundUser, response);
+        return foundUser;
+    }
+
+    private User getUserByUserId(String userId) {
+        log.info("getUserByUserId. userId: {}", userId);
+
+        Optional<User> optionalUser = userRepository.findByUserId(userId);
+        return optionalUser.orElseThrow(() -> {
+            throw new DataNotFoundException("조회된 사용자 없음");
+        });
+    }
+
+    private void saveScrapInfo(User foundUser, ScrapResponseDto response) {
+        log.info("saveScrapInfo. userId: {}", foundUser.getUserId());
+
+        String taxAmount = response.getData().getJsonListResponseDto().getTaxAmount();
+        foundUser.setTaxAmount(taxAmount);
+        saveDeductibleAmount(response.getData().getJsonListResponseDto().getDeductionResponseDtoList(), foundUser);
+    }
+
+    private void saveDeductibleAmount(List<DeductionResponseDto> deductionResponseDto, User user) {
+        log.info("getDeduction. userId: {}" , user.getUserId());
+
+        List<Deduction> deductions = deductionResponseDto.stream()
+                .map(responseDto -> Deduction.builder()
+                        .deductionAmount(responseDto.getAmount())
+                        .incomeCategory(responseDto.getIncomeCategory())
+                        .totalPayment(responseDto.getTotalPayment())
+                        .user(user)
+                        .build())
+                .collect(Collectors.toList());
+
+        deductionRepository.saveAll(deductions);
     }
 
     private User getEncodedUser(User user) {
@@ -82,7 +153,7 @@ public class UserService {
                 .build();
     }
 
-    private boolean isValidUser(String name, String regNo) {
+    private boolean isAllowedUser(String name, String regNo) {
         log.info("isValidUser().");
         Map<String, String> allowedUserMap = allowedUsers.getAllowedUserMap();
         return allowedUserMap.containsKey(regNo) && allowedUserMap.get(regNo).equals(name);
@@ -92,5 +163,34 @@ public class UserService {
         if (str.equals(encode)) {
             throw new RuntimeException("암호화 수행되지 않음");
         }
+    }
+
+    private String objectToRequestBody(String name, String regNo) {
+        log.info("dtoToJson().");
+        ScrapRequestDto scrapRequestDto = ScrapRequestDto.builder()
+                .name(name)
+                .regNo(regNo)
+                .build();
+        try {
+            return objectMapper.writeValueAsString(scrapRequestDto);
+        } catch (JsonProcessingException e) {
+            throw new RestClientException("마샬링 실패");
+        }
+    }
+
+    private ScrapResponseDto getScrapUserFromSzsApi(String requestBody) {
+        log.info("start API Call: getScrapResponseFromSzsApi(). requestBody: {}", requestBody);
+        ResponseEntity<ScrapResponseDto> responseEntity = restTemplate.exchange(
+                scrapEndPoint,
+                HttpMethod.POST,
+                new HttpEntity<>(requestBody),
+                ScrapResponseDto.class
+        );
+
+        if (!responseEntity.getStatusCode().is2xxSuccessful()) {
+            throw new RuntimeException("스크랩 URL 에러 발생");
+        }
+
+        return responseEntity.getBody();
     }
 }

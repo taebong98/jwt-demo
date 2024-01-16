@@ -1,11 +1,8 @@
 package com.taebong.szs.controller;
 
-import com.taebong.szs.controller.dto.LoginDto;
-import com.taebong.szs.controller.dto.TokenResponseDto;
-import com.taebong.szs.controller.dto.UserResponseDto;
-import com.taebong.szs.controller.dto.UserSignupDto;
+import com.taebong.szs.controller.dto.*;
 import com.taebong.szs.domain.UserService;
-import com.taebong.szs.domain.vo.User;
+import com.taebong.szs.domain.user.vo.User;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -13,7 +10,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
-import java.util.List;
 
 @Tag(name = "사용자", description = "사용자 관련 API")
 @RestController
@@ -39,9 +35,16 @@ public class UserController {
 
     @Operation(summary = "토큰으로 사용자 조회")
     @GetMapping("/me")
-    public UserResponseDto getUser(@RequestHeader(name = "Authorization") HttpHeaders headers) {
+    public UserResponseDto getUser(@RequestHeader HttpHeaders headers) {
         String token = headers.getFirst("Authorization");
         User userInfo = userService.getUserInJwtToken(token);
         return userInfo.toUserResponseDto();
+    }
+
+    @Operation(summary = "가입한 유저의 정보를 스크랩 하고, 해당 정보를 데이터베이스에 저장")
+    @PostMapping("/scrap")
+    public UserScrapResponseDto scrap(@RequestHeader HttpHeaders headers) {
+        User user = userService.getAndSaveScrapInfo(headers.getFirst("Authorization"));
+        return user.toScarpUserResponseDto();
     }
 }
