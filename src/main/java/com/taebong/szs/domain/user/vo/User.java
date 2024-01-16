@@ -1,6 +1,7 @@
 package com.taebong.szs.domain.user.vo;
 
 import com.taebong.szs.controller.dto.UserResponseDto;
+import com.taebong.szs.controller.dto.UserScrapResponseDto;
 import lombok.*;
 
 import javax.persistence.*;
@@ -41,16 +42,13 @@ public class User {
                 .name(name)
                 .password(password)
                 .regNo(regNo)
-                .taxAmount(taxAmount)
                 .build();
     }
 
-    public UserResponseDto toScarpUserResponseDto() {
-        return UserResponseDto.builder()
+    public UserScrapResponseDto toScarpUserResponseDto() {
+        return UserScrapResponseDto.builder()
                 .userId(userId)
                 .name(name)
-                .password(password)
-                .regNo(regNo)
                 .taxAmount(taxAmount)
                 .deductionList(deductionList.stream().map(Deduction::toDeductResponseDto).collect(Collectors.toList()))
                 .build();

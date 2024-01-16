@@ -1,9 +1,6 @@
 package com.taebong.szs.controller;
 
-import com.taebong.szs.controller.dto.LoginDto;
-import com.taebong.szs.controller.dto.TokenResponseDto;
-import com.taebong.szs.controller.dto.UserResponseDto;
-import com.taebong.szs.controller.dto.UserSignupDto;
+import com.taebong.szs.controller.dto.*;
 import com.taebong.szs.domain.UserService;
 import com.taebong.szs.domain.user.vo.User;
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,7 +35,7 @@ public class UserController {
 
     @Operation(summary = "토큰으로 사용자 조회")
     @GetMapping("/me")
-    public UserResponseDto getUser(@RequestHeader(name = "Authorization") HttpHeaders headers) {
+    public UserResponseDto getUser(@RequestHeader HttpHeaders headers) {
         String token = headers.getFirst("Authorization");
         User userInfo = userService.getUserInJwtToken(token);
         return userInfo.toUserResponseDto();
@@ -46,7 +43,8 @@ public class UserController {
 
     @Operation(summary = "가입한 유저의 정보를 스크랩 하고, 해당 정보를 데이터베이스에 저장")
     @PostMapping("/scrap")
-    public UserResponseDto scrap(@RequestHeader HttpHeaders headers) {
-        return userService.getAndSaveScrapInfo(headers.getFirst("Authorization")).toScarpUserResponseDto();
+    public UserScrapResponseDto scrap(@RequestHeader HttpHeaders headers) {
+        User user = userService.getAndSaveScrapInfo(headers.getFirst("Authorization"));
+        return user.toScarpUserResponseDto();
     }
 }
